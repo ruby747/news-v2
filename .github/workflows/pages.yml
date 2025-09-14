@@ -12,12 +12,12 @@ permissions:
   pages: write
   id-token: write
 
-jobs:
-  build:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+  jobs:
+    build:
+      runs-on: ubuntu-latest
+      steps:
+        - name: Checkout
+          uses: actions/checkout@v4
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -40,9 +40,12 @@ jobs:
           LIMIT: ${{ vars.LIMIT }}
         run: node scripts/build-topics.js
 
+      - name: Set VITE_BASE to /news-v2/
+        run: |
+          echo "VITE_BASE=/news-v2/" >> $GITHUB_ENV
+          echo "Using fixed base '/news-v2/' for deployment path"
+
       - name: Build site
-        env:
-          VITE_BASE: ${{ vars.VITE_BASE || '/' }}
         run: npm run build
 
       - name: Upload artifact

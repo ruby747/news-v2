@@ -1,0 +1,16 @@
+{
+  "name": "news-v2-server",
+  "private": true,
+  "type": "module",
+  "version": "0.1.0",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "@xenova/transformers": "^2.16.1",
+    "cors": "^2.8.5",
+    "express": "^4.19.2",
+    "rss-parser": "^3.13.0"
+  }
+}
+

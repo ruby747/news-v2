@@ -16,7 +16,16 @@ const DEFAULT_FEEDS = [
 const FEEDS = (process.env.FEEDS ? process.env.FEEDS.split(',') : DEFAULT_FEEDS).map(s => s.trim()).filter(Boolean);
 const LIMIT = Number(process.env.LIMIT || 120);
 
-const parser = new Parser({ timeout: 15000 });
+const parser = new Parser({
+  timeout: 15000,
+  requestOptions: {
+    headers: {
+      'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/117 Safari/537.36',
+      'Accept': 'application/rss+xml, application/xml;q=0.9, */*;q=0.8',
+      'Accept-Language': 'ko-KR,ko;q=0.9,en-US;q=0.7,en;q=0.5',
+    },
+  },
+});
 
 function getDomain(u = '') {
   try { return new URL(u).hostname.replace(/^www\./, ''); } catch { return ''; }

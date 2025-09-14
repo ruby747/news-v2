@@ -155,41 +155,48 @@ async function main() {
   console.log('Fetching feeds...');
   const articles = await fetchKoreanNews();
   console.log('Articles:', articles.length);
-  console.log('Loading embedding model...');
-  const model = await pipeline('feature-extraction', 'Xenova/all-MiniLM-L6-v2');
-  console.log('Embedding and clustering...');
-  const texts = articles.map(a => `${a.title} ${a.summary}`.trim());
-  const vectors = [];
-  for (const t of texts) {
-    const out = await model(t, { pooling: 'mean', normalize: true });
-    vectors.push(Array.from(out.data));
-  }
-  const k = Math.min(10, Math.max(1, Math.floor(Math.sqrt(articles.length))));
-  const { labels } = kmeans(vectors, k);
-  const clusters = new Map();
-  articles.forEach((a, i) => { const c = labels[i]; if (!clusters.has(c)) clusters.set(c, []); clusters.get(c).push({ article: a, idx: i }); });
-
-  const topics = [];
-  let topicId = 1;
-  for (const [cid, arr] of clusters.entries()) {
-    const titles = arr.map(x => x.article.title).join(' ');
-    const summary = arr.map(x => x.article.summary).join(' ');
-    const keys = keywords(`${titles} ${summary}`, 6);
-    const title = keys.slice(0, 3).join(' · ') || `토픽 ${topicId}`;
-    const explanation = `공통 키워드: ${keys.join(', ')}`;
-    topics.push({ id: topicId, rank: topicId, title, explanation });
-    for (const { article } of arr) { article.topicId = topicId; article.clusterId = `c-${cid}`; article.clusterTitle = title; }
-    topicId++;
-  }
-  topics.sort((a, b) => b.rank - a.rank); topics.forEach((t, i) => (t.rank = i + 1));
-
-  const out = { builtAt: new Date().toISOString(), topics, articles };
   const pubDir = path.resolve(process.cwd(), 'public');
   if (!fs.existsSync(pubDir)) fs.mkdirSync(pubDir, { recursive: true });
-  const outPath = path.join(pubDir, 'topics.json');
-  fs.writeFileSync(outPath, JSON.stringify(out, null, 2));
-  console.log('Wrote', outPath);
+  // Always write articles.json (cheap and reliable)
+  const articlesPath = path.join(pubDir, 'articles.json');
+  fs.writeFileSync(articlesPath, JSON.stringify({ builtAt: new Date().toISOString(), articles }, null, 2));
+  console.log('Wrote', articlesPath);
+
+  // Try to build topics.json (can fail if model download/time constraints)
+  try {
+    console.log('Loading embedding model...');
+    const model = await pipeline('feature-extraction', 'Xenova/all-MiniLM-L6-v2');
+    console.log('Embedding and clustering...');
+    const texts = articles.map(a => `${a.title} ${a.summary}`.trim());
+    const vectors = [];
+    for (const t of texts) {
+      const out = await model(t, { pooling: 'mean', normalize: true });
+      vectors.push(Array.from(out.data));
+    }
+    const k = Math.min(10, Math.max(1, Math.floor(Math.sqrt(articles.length))));
+    const { labels } = kmeans(vectors, k);
+    const clusters = new Map();
+    articles.forEach((a, i) => { const c = labels[i]; if (!clusters.has(c)) clusters.set(c, []); clusters.get(c).push({ article: a, idx: i }); });
+
+    const topics = [];
+    let topicId = 1;
+    for (const [cid, arr] of clusters.entries()) {
+      const titles = arr.map(x => x.article.title).join(' ');
+      const summary = arr.map(x => x.article.summary).join(' ');
+      const keys = keywords(`${titles} ${summary}`, 6);
+      const title = keys.slice(0, 3).join(' · ') || `토픽 ${topicId}`;
+      const explanation = `공통 키워드: ${keys.join(', ')}`;
+      topics.push({ id: topicId, rank: topicId, title, explanation });
+      for (const { article } of arr) { article.topicId = topicId; article.clusterId = `c-${cid}`; article.clusterTitle = title; }
+      topicId++;
+    }
+    topics.sort((a, b) => b.rank - a.rank); topics.forEach((t, i) => (t.rank = i + 1));
+    const topicsPath = path.join(pubDir, 'topics.json');
+    fs.writeFileSync(topicsPath, JSON.stringify({ builtAt: new Date().toISOString(), topics, articles }, null, 2));
+    console.log('Wrote', topicsPath);
+  } catch (err) {
+    console.warn('Skipping topics.json due to embedding error:', err?.message || err);
+  }
 }
 
 main().catch(e => { console.error(e); process.exit(1); });
-

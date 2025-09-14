@@ -34,6 +34,20 @@ export async function fetchTopicsFromStatic(): Promise<{ topics: TopicApi[]; art
   }
 }
 
+export async function fetchArticlesFromStatic(): Promise<{ articles: ArticleApi[] } | null> {
+  try {
+    const base = (import.meta as any)?.env?.BASE_URL || '/';
+    const url = `${base}articles.json`;
+    const res = await fetch(url, { cache: 'no-store' });
+    if (!res.ok) return null;
+    const data = await res.json();
+    if (!data?.articles) return null;
+    return { articles: data.articles };
+  } catch {
+    return null;
+  }
+}
+
 function getApiBase(): string {
   const base = (import.meta as any)?.env?.VITE_API_BASE || '';
   return typeof base === 'string' ? base : '';

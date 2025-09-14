@@ -12,6 +12,7 @@ dist
 dist-ssr
 *.local
 public/topics.json
+public/articles.json
 
 # Editor directories and files
 .vscode/*

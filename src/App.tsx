@@ -3,7 +3,7 @@ import { Header } from './components/Header';
 import { TopicRankings } from './components/TopicRankings';
 import { NewsFeed } from './components/NewsFeed';
 import { mockTopics, mockArticles } from './utils/mockData';
-import { fetchTopicsFromStatic, fetchTopicsFromServer, fetchArticlesFromServer } from './utils/api';
+import { fetchTopicsFromStatic, fetchArticlesFromStatic, fetchTopicsFromServer, fetchArticlesFromServer } from './utils/api';
 import { buildTopicsClientSide } from './utils/localEmbed';
 export function App() {
   const [topics, setTopics] = useState(mockTopics);
@@ -11,9 +11,10 @@ export function App() {
   const [selectedTopic, setSelectedTopic] = useState(mockTopics[0].id);
 
   // 1) 정적 topics.json 사용(GitHub Pages)
-  // 2) API의 /api/topics 사용
-  // 3) 실패 시 /api/news/kr 가져와 브라우저에서 토픽 계산(로컬 임베딩)
-  // 4) 모두 실패 시 목데이터
+  // 2) 정적 articles.json 사용 후 브라우저에서 토픽 계산(로컬 임베딩)
+  // 3) API의 /api/topics 사용
+  // 4) API의 /api/news/kr 후 브라우저에서 토픽 계산
+  // 5) 모두 실패 시 목데이터
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -25,6 +26,19 @@ export function App() {
         setSelectedTopic(s.topics[0]?.id ?? 0);
         return;
       }
+      // Step 2: static articles.json + client-side topics
+      const s2 = await fetchArticlesFromStatic();
+      if (!cancelled && s2) {
+        try {
+          const built = await buildTopicsClientSide({ articles: s2.articles });
+          if (built) {
+            setTopics(built.topics);
+            setArticles(built.articles);
+            setSelectedTopic(built.topics[0]?.id ?? 0);
+            return;
+          }
+        } catch {}
+      }
       // Step 2: server topics
       const data1 = await fetchTopicsFromServer();
       if (!cancelled && data1) {
@@ -33,7 +47,7 @@ export function App() {
         setSelectedTopic(data1.topics[0]?.id ?? 0);
         return;
       }
-      // Step 3: server articles + client-side topics
+      // Step 4: server articles + client-side topics
       const data2 = await fetchArticlesFromServer();
       if (!cancelled && data2) {
         try {
@@ -48,7 +62,7 @@ export function App() {
           // ignore and fall back
         }
       }
-      // Step 4: fallback
+      // Step 5: fallback
       if (!cancelled) {
         setTopics(mockTopics);
         setArticles(mockArticles);

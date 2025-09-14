@@ -20,32 +20,46 @@ export interface ArticleApi {
   clusterTitle: string;
 }
 
-export async function fetchTopicsFromStatic(): Promise<{ topics: TopicApi[]; articles: ArticleApi[] } | null> {
-  try {
-    const base = (import.meta as any)?.env?.BASE_URL || '/';
-    const url = `${base}topics.json`;
-    const res = await fetch(url, { cache: 'no-store' });
-    if (!res.ok) return null;
-    const data = await res.json();
-    if (!data?.topics || !data?.articles) return null;
-    return data;
-  } catch {
-    return null;
+async function fetchJsonWithCandidates<T = any>(paths: string[]): Promise<T | null> {
+  for (const url of paths) {
+    try {
+      const res = await fetch(url, { cache: 'no-store' });
+      if (!res.ok) continue;
+      return (await res.json()) as T;
+    } catch {
+      // try next candidate
+    }
   }
+  return null;
+}
+
+function candidatesFor(file: string): string[] {
+  const base = (import.meta as any)?.env?.BASE_URL || '/';
+  const fromBase = base.endsWith('/') ? `${base}${file}` : `${base}/${file}`;
+  const loc = typeof window !== 'undefined' ? window.location : undefined;
+  const path = loc ? loc.pathname.replace(/\/[^/]*$/, '/') : '/';
+  const fromPath = path.endsWith('/') ? `${path}${file}` : `${path}/${file}`;
+  const guesses = new Set<string>([
+    fromBase,
+    fromPath,
+    `/${file}`,
+    file,
+  ]);
+  // Common subpath hint for this project
+  guesses.add(`/news-v2/${file}`);
+  return Array.from(guesses);
+}
+
+export async function fetchTopicsFromStatic(): Promise<{ topics: TopicApi[]; articles: ArticleApi[] } | null> {
+  const data = await fetchJsonWithCandidates<{ topics: TopicApi[]; articles: ArticleApi[] }>(candidatesFor('topics.json'));
+  if (!data?.topics || !data?.articles) return null;
+  return data;
 }
 
 export async function fetchArticlesFromStatic(): Promise<{ articles: ArticleApi[] } | null> {
-  try {
-    const base = (import.meta as any)?.env?.BASE_URL || '/';
-    const url = `${base}articles.json`;
-    const res = await fetch(url, { cache: 'no-store' });
-    if (!res.ok) return null;
-    const data = await res.json();
-    if (!data?.articles) return null;
-    return { articles: data.articles };
-  } catch {
-    return null;
-  }
+  const data = await fetchJsonWithCandidates<{ articles: ArticleApi[] }>(candidatesFor('articles.json'));
+  if (!data?.articles) return null;
+  return { articles: data.articles };
 }
 
 function getApiBase(): string {
